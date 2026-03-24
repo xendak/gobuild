@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+
+	tea "charm.land/bubbletea/v2"
 )
 
 func main() {
@@ -32,18 +34,27 @@ func main() {
 	}
 
 	lc := 0
+	var parsed []Data
 	for scanner.Scan() {
-		lc++
 		text := scanner.Text()
-		parsed := parseLine(text)
-		if parsed.Match {
-			fmt.Println("File = %s", parsed.File)
-			fmt.Println("Line:Col = %d:%d", parsed.Lin, parsed.Col)
-			fmt.Println("Msg = %s", parsed.Msg)
+		curr := parseLine(text)
+		if curr.Match {
+			parsed = append(parsed, curr)
+			lc++
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
+	if lc > 0 {
+		m := model{
+			lines: parsed,
+		}
+
+		p := tea.NewProgram(m)
+		if _, err := p.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "Nothing matched.\n")
 	}
 }

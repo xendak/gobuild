@@ -5,3 +5,5 @@ learning/
 dist/
 result
 result/
+gobuild
+build.sh

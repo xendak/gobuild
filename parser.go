@@ -6,11 +6,23 @@ import (
 	"strings"
 )
 
+type Severity int
+
+const (
+	None Severity = iota
+	Note
+	Info
+	Hint
+	Warning
+	Error
+)
+
 type Data struct {
 	Raw   string
 	File  string
 	Lin   int
 	Col   int
+	Sev   Severity
 	Msg   string
 	Match bool
 }
@@ -44,6 +56,12 @@ func matchLine(regex *regexp.Regexp, line string) map[string]string {
 	return result
 }
 
+func getSeverity(msg string) Severity {
+	lvl, _ := strconv.Atoi(msg)
+
+	return Severity(lvl)
+}
+
 func parseLine(raw string) Data {
 	result := Data{Raw: raw, Match: false}
 	for _, pattern := range patterns {
@@ -62,6 +80,8 @@ func parseLine(raw string) Data {
 		if result.Col == 0 {
 			result.Col = 1
 		}
+
+		result.Sev = getSeverity(match["sev"])
 
 		result.Msg = match["msg"]
 		result.Match = true
