@@ -1,0 +1,7 @@
+.direnv/
+learning/
+.envrc
+.idea
+dist/
+result
+result/
