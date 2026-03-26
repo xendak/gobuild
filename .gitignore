@@ -1,9 +1,11 @@
 .direnv/
-learning/
 .envrc
 .idea
+.go_cache/
 dist/
-result
+learning/
 result/
+result
 gobuild
 build.sh
+zig.sh

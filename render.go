@@ -9,7 +9,7 @@ import (
 )
 
 type model struct {
-	lines  []Data
+	msg    Message
 	cursor int
 	view   int
 	width  int
@@ -20,30 +20,41 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+// NOTE(xendak): i need to remember to avoid *model,
+// violates bubbletea principles
+func findNext(msg Message, cur int) int {
+	cur = (cur + 1) % msg.count
+	for !(msg.Lines[cur].Match) {
+		cur = (cur + 1) % msg.count
+	}
+	return cur
+}
 
+func findPrev(msg Message, cur int) int {
+	// NOTE(xendak): c = 0? c - 1 => -1, segfault, then we add maxCount to fix.
+	cur = (cur - 1 + msg.count) % msg.count
+	for !(msg.Lines[cur].Match) {
+		cur = (cur - 1 + msg.count) % msg.count
+	}
+	return cur
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		{
 			m.width = msg.Width
 			m.height = msg.Height
 		}
+
 	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "q", "ctrl+c":
 			return m, tea.Quit
 		case "n", "down":
-			if m.cursor < len(m.lines)-1 {
-				m.cursor++
-			} else {
-				m.cursor = 0
-			}
+			m.cursor = findNext(m.msg, m.cursor)
 		case "N", "up":
-			if m.cursor > 0 {
-				m.cursor--
-			} else {
-				m.cursor = len(m.lines) - 1
-			}
+			m.cursor = findPrev(m.msg, m.cursor)
 		}
 	}
 
@@ -75,8 +86,8 @@ func (m model) View() tea.View {
 
 	drawLine := 0
 	end := m.view + visibleArea
-	if end > len(m.lines) {
-		end = len(m.lines)
+	if end > m.msg.count {
+		end = m.msg.count
 	}
 
 	// Styles
@@ -91,12 +102,16 @@ func (m model) View() tea.View {
 	commonStyle := lg.NewStyle().
 		Foreground(lg.Color("#DEB887"))
 
+	fileStyle := lg.NewStyle().
+		Foreground(lg.Color("4"))
+	locationStyle := lg.NewStyle().Foreground(lg.Color("2"))
+
 	err := 0
 	warn := 0
 	normal := 0
-	
+
 	for i := m.view; i < end; i++ {
-		currLine := m.lines[i]
+		currLine := m.msg.Lines[i]
 
 		prefix := " "
 		if m.cursor == i {
@@ -116,12 +131,18 @@ func (m model) View() tea.View {
 			err++
 		}
 
-		sb.WriteString(fmt.Sprintf(
-			"%s%s(%d:%d): %s\n",
-			prefix, currLine.File,
-			currLine.Lin, currLine.Col,
-			style.Render(fmt.Sprintf("%s", currLine.Msg)),
-		))
+		if currLine.Match {
+			sb.WriteString(fmt.Sprintf(
+				"%s%s(%s): %s %s\n",
+				prefix,
+				fileStyle.Render(fmt.Sprintf("%s", currLine.File)),
+				locationStyle.Render(fmt.Sprintf("%d:%d", currLine.Lin, currLine.Col)),
+				style.Render(fmt.Sprintf("%s", currLine.Sev.String())),
+				currLine.Msg,
+			))
+		} else {
+			sb.WriteString(fmt.Sprintf("%s\n", currLine.Raw))
+		}
 
 		drawLine++
 	}

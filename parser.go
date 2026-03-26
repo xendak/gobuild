@@ -17,7 +17,27 @@ const (
 	Error
 )
 
-type Data struct {
+var sevString = [...]string{
+	"None",
+	"Note",
+	"Info",
+	"Hint",
+	"Warning",
+	"Error",
+}
+
+func (s Severity) String() string {
+	if s < 0 {
+		panic("Assert Failed: Severity is less than 0")
+	}
+	if int(s) > len(sevString) {
+		panic("Assert Failed: Severity exceed the sevString[] length")
+	}
+
+	return sevString[int(s)] + ": "
+}
+
+type Line struct {
 	Raw   string
 	File  string
 	Lin   int
@@ -27,8 +47,14 @@ type Data struct {
 	Match bool
 }
 
-type pattern struct{ regex *regexp.Regexp }
+// TODO: add more functionaly ? maybe
+type Message struct {
+	Lines []Line
+	count int
+}
 
+type pattern struct{ regex *regexp.Regexp }
+// TODO: maybe we check the match in a different way ?
 var patterns = []pattern{
 	// Odin:  file.odin(10:8) Syntax Error: message
 	{regexp.MustCompile(`^(?P<file>[^(\n]+)\((?P<line>\d+):(?P<col>\d+)\)\s*(?P<sev>Syntax Error|Error|Warning|Note)?:?\s*(?P<msg>.*)$`)},
@@ -62,8 +88,8 @@ func getSeverity(msg string) Severity {
 	return Severity(lvl)
 }
 
-func parseLine(raw string) Data {
-	result := Data{Raw: raw, Match: false}
+func parseLine(raw string) Line {
+	result := Line{Raw: raw, Match: false}
 	for _, pattern := range patterns {
 		match := matchLine(pattern.regex, raw)
 		// if this line is not a match, we move on
