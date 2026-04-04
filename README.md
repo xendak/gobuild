@@ -31,7 +31,9 @@ gobuild
 
 <details>
   <summary>Flashbang</summary>
-  ![demo](./output.gif)
+  
+  ![](output.gif)
+
 </details>
 
 ### Features
