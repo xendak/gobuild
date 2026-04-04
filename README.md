@@ -1,7 +1,7 @@
 # gobuild
 
 > work in progress, tui version of emacs compilation-mode. (?)
-> [Changelog](README#Changelog)
+> [Changelog](#Changelog)
 
 I use helix (sometimes vi, emacs), i tried using wezterm regex to do this for
 me.. was a bit of a chore, so i tried building something that was useful for me
@@ -27,10 +27,17 @@ gobuild -c "make"
 gobuild
 ```
 
+### Preview
+
+<details>
+  <summary>Flashbang</summary>
+  ![demo](./output.gif)
+</details>
+
 ### Features
 
 - pipe, file, and `-c`/`--cmd` input modes
-- interactive mode — type a command to run while the TUI is open
+- interactive mode: type a command to run
 - open matched line in editor (`$EDITOR`, currently defaults to `wez-hx`)
 - colors via lipgloss (hardcoded for now)
 - navigate between errors/matches
