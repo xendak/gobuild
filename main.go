@@ -1,8 +1,9 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"strings"
 
@@ -10,23 +11,52 @@ import (
 )
 
 func main() {
-	var scanner *bufio.Scanner
+	m := newModel()
+	var text string
 	var files []string
 
-	// TODO(xendak): interactive mode later
+	appState := Interactive
+
+	stat, _ := os.Stdin.Stat()
+
+	// :debug
+	logPath := "/tmp/gobuild.log"
+	os.Remove(logPath)
+	f, _ := tea.LogToFile(logPath, "debug")
+	defer f.Close()
+
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		appState = Results
+		bytes, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		text = string(bytes)
+
+		// TODO(xendak): can we get this on linux(?)
+		// cmdText, err := getSourceCommand()
+	}
+
 	if len(os.Args) > 1 {
+		appState = Results
+
 		args := os.Args[1:]
 		for i := 0; i < len(args); i++ {
 			switch args[i] {
-			// Note(xendak): pipe concept? but enables updating on demand
+
+			// NOTE(xendak): pipe concept? but enables updating on demand
 			case "--cmd", "-c":
+				cmdStr := strings.Join(args[i+1:], " ")
+				log.Printf("Cmd: %s\n", cmdStr)
+
+				m.cmd = runCommand(cmdStr)
 				// NOTE(xendak): consume all args for cmd
 				i = len(args)
 
 			default:
 				if !strings.HasPrefix(args[i], "-") {
 					files = append(files, args[i])
-					fmt.Println("Files?: %d", len(files))
+					log.Printf("Files?: %d\n", len(files))
 				}
 
 			}
@@ -48,45 +78,30 @@ func main() {
 				readFiles.Write(file)
 			}
 
-			fmt.Printf("Reading from file(s): %s\n", files)
-			scanner = bufio.NewScanner(strings.NewReader(readFiles.String()))
+			log.Printf("Reading from file(s): %s\n", files)
+			text = readFiles.String()
 		}
-	} else {
-		stat, _ := os.Stdin.Stat()
-
-		if (stat.Mode() & os.ModeCharDevice) != 0 {
-			fmt.Fprintln(os.Stderr, "Error: No input provided.")
-			os.Exit(1)
-		}
-
-		fmt.Println("Reading from piped stdin.")
-		scanner = bufio.NewScanner(os.Stdin)
 	}
 
-	var msg Message
-	msg.count = 0
-	first := -1
-	for scanner.Scan() {
-		text := scanner.Text()
-		curr := parseLine(text)
-		if first == -1 && curr.Match {
-			first = msg.count
+	if appState == Results {
+		m.msg = parseMsg(text)
+		m.cursor = max(0, m.msg.match)
+		if m.msg.match < 0 {
+			appState = Passthrough
 		}
-		msg.Lines = append(msg.Lines, curr)
-		msg.count++
 	}
 
-	if msg.count > 0 && first >= 0 {
-		m := model{
-			msg:    msg,
-			cursor: first,
-		}
+	if (len(m.msg.Lines) > 0) || appState == Interactive || m.cmd != nil {
+		m.state = AppState(appState)
 
 		p := tea.NewProgram(m)
-		if _, err := p.Run(); err != nil {
+
+		_, err := p.Run()
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
 			os.Exit(1)
 		}
+
 	} else {
 		fmt.Fprintf(os.Stderr, "Nothing matched.\n")
 	}

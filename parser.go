@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"regexp"
 	"strconv"
 	"strings"
@@ -47,14 +48,16 @@ type Line struct {
 	Match bool
 }
 
-// TODO: add more functionaly ? maybe
+// TODO(xendak): add more functionaly ? maybe
+
 type Message struct {
 	Lines []Line
-	count int
+	match int
 }
 
 type pattern struct{ regex *regexp.Regexp }
-// TODO: maybe we check the match in a different way ?
+
+// TODO(xendak): maybe we check the match in a different way ?
 var patterns = []pattern{
 	// Odin:  file.odin(10:8) Syntax Error: message
 	{regexp.MustCompile(`^(?P<file>[^(\n]+)\((?P<line>\d+):(?P<col>\d+)\)\s*(?P<sev>Syntax Error|Error|Warning|Note)?:?\s*(?P<msg>.*)$`)},
@@ -72,7 +75,7 @@ func matchLine(regex *regexp.Regexp, line string) map[string]string {
 		return nil
 	}
 
-	// empty hash table basically
+	// NOTE(xendak): empty hash table basically
 	result := make(map[string]string)
 	for i, name := range regex.SubexpNames() {
 		if name != "" && i < len(match) {
@@ -83,16 +86,49 @@ func matchLine(regex *regexp.Regexp, line string) map[string]string {
 }
 
 func getSeverity(msg string) Severity {
-	lvl, _ := strconv.Atoi(msg)
+	lower := strings.ToLower(msg)
+	switch {
+	case strings.Contains(lower, "error"):
+		return Error
+	case strings.Contains(lower, "warning"):
+		return Warning
+	// TODO(xendak): expand to the other classifications
+	case lower == "note" || lower == "hint" || lower == "info":
+		return Note
+	default:
+		return None
+	}
+}
 
-	return Severity(lvl)
+// TODO(xendak): create a ViewLine and a expandedLine, so we can wrap text
+func parseMsg(raw string) Message {
+	var msg Message
+	scanner := bufio.NewScanner(strings.NewReader(raw))
+
+	msg.match = -1
+	for scanner.Scan() {
+		curr := scanner.Text()
+		// FIXME(xendak): make this a proper function or something
+		// curr = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`).ReplaceAllString(curr, "")
+		parsed := parseLine(curr)
+
+		if parsed.Match && msg.match < 0 {
+			msg.match = len(msg.Lines)
+		}
+
+		msg.Lines = append(msg.Lines, parsed)
+
+	}
+
+	return msg
 }
 
 func parseLine(raw string) Line {
 	result := Line{Raw: raw, Match: false}
+
 	for _, pattern := range patterns {
 		match := matchLine(pattern.regex, raw)
-		// if this line is not a match, we move on
+
 		if match == nil {
 			continue
 		}
@@ -100,12 +136,10 @@ func parseLine(raw string) Line {
 		result.File = match["file"]
 		result.Lin, _ = strconv.Atoi(match["line"])
 
-		// failsafe so we dont need to deal with this on cases where its only {file} and {line}
-		// since we can just call open editor at col 1 without any issue
+		// failsafe so we can do {file}:{line}:1 instead of panic
+		// Helix cant invoke open %s:line:0 for some reason :')
 		result.Col, _ = strconv.Atoi(match["col"])
-		if result.Col == 0 {
-			result.Col = 1
-		}
+		result.Col = max(1, result.Col)
 
 		result.Sev = getSeverity(match["sev"])
 
@@ -118,6 +152,7 @@ func parseLine(raw string) Line {
 			continue
 		}
 
+		break
 	}
 	return result
 }

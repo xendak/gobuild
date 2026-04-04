@@ -7,5 +7,5 @@ learning/
 result/
 result
 gobuild
-build.sh
-zig.sh
+build.nu
+examples/
