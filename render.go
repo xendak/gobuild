@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
 	lg "charm.land/lipgloss/v2"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/textinput"
 )
 
@@ -29,9 +31,11 @@ type model struct {
 	width  int
 	height int
 	cmd    tea.Cmd
+	cfg    Config
+	keys   KeyBindings
 }
 
-func newModel() model {
+func newModel(cfg Config) model {
 	input := textinput.New()
 	input.Focus()
 	input.SetWidth(48)
@@ -40,16 +44,20 @@ func newModel() model {
 
 	style := textinput.DefaultDarkStyles()
 
-	colorAccent := lg.Blue
+	colorAccent := lg.Color(cfg.Accent)
 
-	style.Focused.Text = lg.NewStyle().Foreground(lg.White)
+	style.Focused.Text = lg.NewStyle().Foreground(lg.Color(cfg.InputFg))
 	style.Focused.Prompt = lg.NewStyle().Foreground(colorAccent)
 	style.Cursor.Color = colorAccent
 
 	input.SetStyles(style)
 
+	keys := BuildKeyMap(cfg)
+
 	return model{
 		input: input,
+		cfg:   cfg,
+		keys:  keys,
 	}
 }
 
@@ -100,12 +108,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = Results
 
 	case tea.KeyPressMsg:
+    log.Printf("KeyPress: %q", msg.String())
 		switch m.state {
 		case Interactive:
-			switch msg.String() {
-			case "ctrl+c":
+			switch {
+			case key.Matches(msg, m.keys.QuitPrompt):
 				return m, tea.Quit
-			case "esc":
+			case key.Matches(msg, m.keys.EscPrompt):
 				if len(m.msg.Lines) > 0 {
 					m.state = Results
 					m.input.Blur()
@@ -114,7 +123,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, tea.Quit
 					}
 				}
-			case "enter":
+			case key.Matches(msg, m.keys.SubmitCmd):
 				val := m.input.Value()
 				if val == "" {
 					val = "make"
@@ -128,23 +137,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, runCommand(val)
 			}
 		default:
-			switch msg.String() {
-			case "q", "ctrl+c":
+			switch {
+			case key.Matches(msg, m.keys.Quit):
 				return m, tea.Quit
 			// TODO(xendak): add Horizontal movement if we didn't/can't wrap
-			//
-			case "n", "down":
+			case key.Matches(msg, m.keys.NextMatch):
 				m.cursor = findNext(m.msg, m.cursor)
-			case "N", "up":
+			case key.Matches(msg, m.keys.PrevMatch):
 				m.cursor = findPrev(m.msg, m.cursor)
-			case ":":
+			case key.Matches(msg, m.keys.OpenPrompt):
 				m.input.SetValue("")
 				m.state = Interactive
 				m.input.Focus()
 				m.input.SetSuggestions(getSuggestions())
 
 				return m, nil
-			case "enter":
+			case key.Matches(msg, m.keys.OpenPrompt):
 				curr := m.msg.Lines[m.cursor]
 				var arg strings.Builder
 
@@ -152,6 +160,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				editor := "wez-hx"
 				fmt.Fprintf(&arg, "%s:%d:%d", curr.File, curr.Lin, curr.Col)
 
+				if m.cfg.Block {
+					return m, openEditor(editor, arg.String())
+				}
 				return m, openEditorAsync(editor, arg.String())
 			}
 
@@ -216,20 +227,20 @@ func (m model) View() tea.View {
 
 func (m model) renderInput() string {
 	labelStyle := lg.NewStyle().
-		Foreground(lg.Color("7")).
+		Foreground(lg.Color(m.cfg.NormalFg)).
 		Width(48).
 		Bold(true)
 
 	inputStyle := lg.NewStyle().
-		Foreground(lg.Color("7")).
+		Foreground(lg.Color(m.cfg.InputFg)).
 		Padding(0, 1).
 		Border(lg.RoundedBorder()).
-		BorderForeground(lg.Blue).
+		BorderForeground(lg.Color(m.cfg.InputBorderColor)).
 		Width(48)
 
 	outerStyle := lg.NewStyle().
 		Border(lg.RoundedBorder()).
-		BorderForeground(lg.Blue).
+		BorderForeground(lg.Color(m.cfg.InputBorderColor)).
 		Padding(0, 2).
 		Width(56)
 
@@ -250,15 +261,15 @@ func (m model) renderResults() string {
 	end := min(m.view+visibleArea, len(m.msg.Lines))
 
 	hudStyle := lg.NewStyle().
-		Background(lg.Black).
-		Foreground(lg.White)
+		Background(lg.Color(m.cfg.HudBg)).
+		Foreground(lg.Color(m.cfg.HudFg))
 
-	errStyle := lg.NewStyle().Foreground(lg.Red)
-	warnStyle := lg.NewStyle().Foreground(lg.Yellow)
-	commonStyle := lg.NewStyle().Foreground(lg.Magenta)
+	errStyle := lg.NewStyle().Foreground(lg.Color(m.cfg.ErrorFg))
+	warnStyle := lg.NewStyle().Foreground(lg.Color(m.cfg.WarnFg))
+	noteStyle := lg.NewStyle().Foreground(lg.Color(m.cfg.NoteFg))
 
-	fileStyle := lg.NewStyle().Foreground(lg.Blue)
-	locationStyle := lg.NewStyle().Foreground(lg.Green)
+	fileStyle := lg.NewStyle().Foreground(lg.Color(m.cfg.FileFg))
+	locationStyle := lg.NewStyle().Foreground(lg.Color(m.cfg.LocationFg))
 
 	err := 0
 	warn := 0
@@ -303,13 +314,17 @@ func (m model) renderResults() string {
 		sb.WriteString("\n")
 	}
 
+	n := m.keys.NextMatch.Help().Key
+	p := m.keys.PrevMatch.Help().Key
+	q := m.keys.Quit.Help().Key
+
 	hudText := hudStyle.Render(" ☰ ") +
-		commonStyle.Inherit(hudStyle).Render(fmt.Sprintf("%d info", normal)) +
+		noteStyle.Inherit(hudStyle).Render(fmt.Sprintf("%d info", normal)) +
 		hudStyle.Render("  ") +
 		errStyle.Inherit(hudStyle).Render(fmt.Sprintf("%d errors", err)) +
 		hudStyle.Render("  ") +
 		warnStyle.Inherit(hudStyle).Render(fmt.Sprintf("%d warnings", warn)) +
-		hudStyle.Render("  [n/N: navigate | q: quit]")
+		hudStyle.Render(fmt.Sprintf("  [%s/%s: navigate | %s: quit]", n, p, q))
 
 	hud := hudStyle.
 		Width(m.width).

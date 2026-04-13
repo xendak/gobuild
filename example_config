@@ -1,0 +1,35 @@
+# Checks only XDG_CONFIG_HOME/gobuild/config
+# Editor
+Editor: wez-hx
+Block:  false
+
+# Colors
+# Can be either hexcode (i.e: #202020) or ansi.BasicColors (i.e: 1 is red)
+# Check ansi colors on bubbletea docs for more
+#  => transparent
+WindowBg:         2
+Accent:           12
+ErrorFg:          1
+WarnFg:           3
+NoteFg:           5
+NormalFg:         7
+FileFg:           4
+LocationFg:       2
+HudBg:            0
+HudFg:            7
+InputFg:          7
+InputBorderColor: 12
+InputLabelFg:     7
+InputCursorColor: 12
+InputPanelBg:     
+InputPanelBorder: 12
+
+# Keys
+Quit:       q, ctrl+c
+QuitPrompt: ctrl+c
+NextMatch:  n, down
+PrevMatch:  N, up
+OpenPrompt: :
+OpenEditor: enter
+EscPrompt:  esc
+SubmitCmd:  enter

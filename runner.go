@@ -15,12 +15,14 @@ type cmdOut struct {
 	err error
 }
 
+// TODO(xendak): nushell is kinda wonky?? force bash for now
 func runCommand(rawCommand string) tea.Cmd {
 	return func() tea.Msg {
-		shell := os.Getenv("SHELL")
-		if shell == "" {
-			shell = "sh"
-		}
+		// shell := os.Getenv("SHELL")
+		// if shell == "" {
+		// 	shell = "sh"
+		// }
+		shell := "bash"
 
 		cmd := exec.Command(shell, "-ic", rawCommand)
 		out, err := cmd.CombinedOutput()

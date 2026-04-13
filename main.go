@@ -11,7 +11,18 @@ import (
 )
 
 func main() {
-	m := newModel()
+	// :debug
+	logPath := "/tmp/gobuild.log"
+	os.Remove(logPath)
+	f, _ := tea.LogToFile(logPath, "debug")
+	defer f.Close()
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error handling config file: %v\n", err)
+		os.Exit(1)
+	}
+	m := newModel(cfg)
 	var text string
 	var files []string
 
@@ -19,11 +30,6 @@ func main() {
 
 	stat, _ := os.Stdin.Stat()
 
-	// :debug
-	logPath := "/tmp/gobuild.log"
-	os.Remove(logPath)
-	f, _ := tea.LogToFile(logPath, "debug")
-	defer f.Close()
 
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
 		appState = Results
@@ -93,6 +99,7 @@ func main() {
 
 	if (len(m.msg.Lines) > 0) || appState == Interactive || m.cmd != nil {
 		m.state = AppState(appState)
+
 
 		p := tea.NewProgram(m)
 
