@@ -26,9 +26,9 @@
         {
           default = pkgs.buildGoModule {
             pname = "gobuild";
-            version = "0.1.0";
+            version = "0.0.5";
             src = ./.;
-            vendorHash = "sha256-uFyrLQ5Q3sE2ioqdYxxfXgua8pG9ebIDcYKV3nVN568=";
+            vendorHash = "sha256-QGdzh+s4BoShUuWWkcJGf9xW7/OFzHyV744Ps2HqkGQ=";
 
             meta = with pkgs.lib; {
               description = "Emacs like compilation-mode for TUI";
