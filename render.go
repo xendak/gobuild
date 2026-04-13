@@ -132,7 +132,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = Results
 				m.input.Blur()
 
-				save(val)
+				saveHistory(val)
 
 				return m, runCommand(val)
 			}

@@ -43,6 +43,8 @@ gobuild
 - open matched line in editor (`$EDITOR`, currently defaults to `wez-hx`)
 - colors via lipgloss (hardcoded for now)
 - navigate between errors/matches
+- customizable via config: editor, colors and keybinds [example_config](./example_config)
+- history: interactive mode remembers 10 most frequent commands per directory
 
 ### Modes
 
@@ -74,8 +76,20 @@ gobuild
 ### [Unreleased] — in progress
 
 - trying to get PIPE command feedback so maybe i can update it?
-- offer a config file for colors, editor, etc.
+- horizontal movement & wrap text
 - some flags to switch been stuff
+
+---
+
+### 0.0.5
+
+- simple config file support [example_config](./example_config)
+  - Editor
+  - Block (async vs exit on select)
+  - Colors
+  - Keys
+- smart command history in interactive mode (saves up to 10 commands per directory, sorted by frequency, removes duplicates)
+- refactor: removed hardcoded colors and editor variables
 
 ---
 
