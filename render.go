@@ -36,6 +36,7 @@ func newModel() model {
 	input.Focus()
 	input.SetWidth(48)
 	input.Prompt = "> "
+	input.ShowSuggestions = true
 
 	style := textinput.DefaultDarkStyles()
 
@@ -108,6 +109,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.msg.Lines) > 0 {
 					m.state = Results
 					m.input.Blur()
+				} else {
+					if len(m.input.Value()) < 1 {
+						return m, tea.Quit
+					}
 				}
 			case "enter":
 				val := m.input.Value()
@@ -118,6 +123,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = Results
 				m.input.Blur()
 
+				save(val)
+
 				return m, runCommand(val)
 			}
 		default:
@@ -125,7 +132,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "q", "ctrl+c":
 				return m, tea.Quit
 			// TODO(xendak): add Horizontal movement if we didn't/can't wrap
-			// 
+			//
 			case "n", "down":
 				m.cursor = findNext(m.msg, m.cursor)
 			case "N", "up":
@@ -134,6 +141,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.input.SetValue("")
 				m.state = Interactive
 				m.input.Focus()
+				m.input.SetSuggestions(getSuggestions())
+
 				return m, nil
 			case "enter":
 				curr := m.msg.Lines[m.cursor]
@@ -142,7 +151,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// TODO(xendak) remove the hardcode and offer configs
 				editor := "wez-hx"
 				fmt.Fprintf(&arg, "%s:%d:%d", curr.File, curr.Lin, curr.Col)
-				
+
 				return m, openEditorAsync(editor, arg.String())
 			}
 
