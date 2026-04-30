@@ -152,7 +152,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.input.SetSuggestions(getSuggestions())
 
 				return m, nil
-			case key.Matches(msg, m.keys.OpenPrompt):
+			case key.Matches(msg, m.keys.SubmitCmd):
 				curr := m.msg.Lines[m.cursor]
 				var arg strings.Builder
 
